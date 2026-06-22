@@ -11,8 +11,9 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
-  PYTHON_VERSION: '3.12' # set this to the python version to use (supports 3.6, 3.7, 3.8)
+  # 🟢 DEĞİŞİKLİK: Hedef klasörü 'function' olarak güncelledik
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './function' 
+  PYTHON_VERSION: '3.12'
 
 jobs:
   build:
@@ -29,26 +30,25 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Create and start virtual environment
+      # 🟢 DEĞİŞİKLİK: Sanal ortamı ve pip yüklemesini function klasörü içinde tetikliyoruz
+      - name: Create and start virtual environment & Install dependencies
+        working-directory: ./function
         run: |
           python -m venv venv
           source venv/bin/activate
+          pip install -r requirements.txt
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      # Optional: Add step to run tests here
-
+      # 🟢 DEĞİŞİKLİK: Sadece function klasörünün içeriğini sıkıştırıyoruz
       - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+        run: |
+          cd function
+          zip -r ../release.zip ./* -x "venv/*"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            release.zip
-            !venv/
+          path: release.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -75,11 +75,12 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_73D96D4A010146DA96CED088AEE3F2B7 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_A90EB5EA479F437C8C6951BE3B01A2F9 }}
 
+      # 🟢 DEĞİŞİKLİK: Artık paket doğrudan deploy adımının çalıştığı kök dizine açıldığı için 
+      # package parametresine '.' vererek hedefi gösteriyoruz.
       - name: 'Deploy to Azure Functions'
         uses: Azure/functions-action@v1
         id: deploy-to-function
         with:
           app-name: 'nakamura'
           slot-name: 'Production'
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          
+          package: '.'
